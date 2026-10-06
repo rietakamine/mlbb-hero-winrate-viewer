@@ -15,8 +15,15 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
+# Canonical hero type / lane names. Used to fix capitalization of API values
+# (e.g. "fighter" -> "Fighter") and as the preferred chip order in the UI.
+TYPE_ORDER = ["Tank", "Fighter", "Assassin", "Mage", "Marksman", "Support"]
+LANE_ORDER = ["EXP Lane", "Jungle", "Mid Lane", "Gold Lane", "Roam"]
+
 # --- Images / cache ----------------------------------------------------
-ICON_SIZE = 84  # grid portrait size in px
+ICON_SIZE = 84          # grid portrait size in px
+POPUP_ICON_SIZE = 128   # popup fallback (square portrait) size in px
+POPUP_SMALLMAP_SIZE = (240, 390)  # popup smallmap image (width, height) in px, portrait
 
 # Cache directory for hero icons (next to main.py)
 CACHE_DIR = Path(__file__).resolve().parent / "cache" / "icons"

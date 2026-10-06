@@ -7,7 +7,10 @@ A free, open-source desktop app (Tkinter) that shows a Mobile Legends: Bang Bang
 - Enter a player **UID** and fetch their stats
 - See a grid of hero portraits, sorted by most-played
 - Each card shows the combined winrate and total matches
-- Click a hero to open a popup with **Classic**, **Rank**, and **Combined** stats (wins / total → winrate)
+- **Filter** by hero type (Assassin, Marksman, ...) and by lane (Roam, Gold Lane, ...)
+- **Sort** by most played, winrate, or name
+- The grid **adapts to the window size**: columns are added or removed as you resize
+- Click a hero to open a popup with the hero's `smallmap` image, type/lane, and **Classic**, **Rank**, and **Combined** stats (wins / total → winrate)
 - Hero portraits are cached on disk so later launches are faster
 
 ## Requirements
@@ -43,16 +46,17 @@ python main.py
 ```
 .
 ├── main.py            # Entry point
-├── config.py          # API URLs, headers, pvp type IDs, cache path, icon size
+├── config.py          # API URLs, headers, pvp type IDs, cache path, icon sizes
 ├── api.py             # Network calls (hero list, player win list)
 ├── stats.py           # Win list parsing + winrate calculation (no UI/network)
-├── images.py          # Portrait download, disk cache, rounded corners
+├── images.py          # Image download, disk cache (head + smallmap), rounded corners
 ├── requirements.txt
 ├── LICENSE
 ├── README.md
 └── ui/
-    ├── theme.py       # Color palette and grid layout constants
+    ├── theme.py       # Color palette and card spacing
     ├── scrollbar.py   # ThinScrollbar widget
+    ├── filter_bar.py  # FilterBar + ChipRow (type / lane filters, sort)
     ├── hero_card.py   # HeroCard widget (one grid cell)
     ├── popup.py       # StatsPopup window
     └── app.py         # Main App window, wiring everything together
@@ -62,18 +66,20 @@ Dependency direction is one-way: `ui/*` → `api` / `stats` / `images` → `conf
 
 ## How it works
 
-1. On startup, `api.fetch_all_heroes()` loads hero names and portrait URLs in a background thread.
+1. On startup, `api.fetch_all_heroes()` loads hero names, portrait URLs (`head_big`, `smallmap`), types (`sort_title`) and lanes (`road_sort_title`) in a background thread. The filter chips are built from whatever types and lanes the API returns.
 2. On **Fetch**, `api.fetch_player_winlist(uid)` gets the player's raw stats and `stats.parse_winlist()` splits them into Classic and Rank dictionaries of `{hero_id: (total, wins)}`.
 3. Portraits are loaded in parallel (12 worker threads) through `images.download_image()`, which checks `cache/icons/` first and only downloads on a miss.
-4. The UI is updated from worker threads only via `self.after(0, ...)`, keeping Tkinter calls on the main thread.
+4. Every hero card is created once. Filtering and sorting only hide/re-grid the existing cards, and a resize recomputes the column count from the window width.
+5. Clicking a card downloads (or loads from cache) the hero's `smallmap` image for the popup, falling back to the portrait if there isn't one.
+6. The UI is updated from worker threads only via `self.after(0, ...)`, keeping Tkinter calls on the main thread.
 
 ## Configuration
 
-Edit `config.py` for API endpoints, request headers, and `ICON_SIZE`, and `ui/theme.py` for colors and the number of columns (`COLS`) or card spacing (`CARD_PAD`).
+Edit `config.py` for API endpoints, request headers, `ICON_SIZE` (grid) and `POPUP_ICON_SIZE` (popup), and `ui/theme.py` for colors and card spacing (`CARD_PAD`). The column count is automatic. Chip order for types and lanes lives in `ui/filter_bar.py` (`TYPE_ORDER`, `LANE_ORDER`).
 
 ## Cache
 
-Portraits are saved as `cache/icons/<hero_id>.png` next to `main.py`. Delete the folder to force a re-download.
+Images are saved next to `main.py` as `cache/icons/<hero_id>.png` (portrait) and `cache/icons/<hero_id>_smallmap.png` (popup image). Delete the folder to force a re-download.
 
 ## Notes
 

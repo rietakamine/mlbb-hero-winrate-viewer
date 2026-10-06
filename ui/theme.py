@@ -14,5 +14,4 @@ ORANGE      = "#ce9178"
 PURPLE      = "#c586c0"
 CYAN        = "#4ec9b0"
 
-COLS = 8       # hero cards per row
-CARD_PAD = 6   # gap around each card
+CARD_PAD = 6   # gap around each card (columns are computed from window width)

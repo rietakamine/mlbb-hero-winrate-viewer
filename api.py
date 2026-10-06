@@ -1,14 +1,66 @@
 """Network calls to the Mobile Legends APIs."""
 
-from typing import Dict
+from typing import Dict, List
 
 import requests
 
-from config import HEADERS, HERO_API_URL, WINLIST_API_URL
+from config import HEADERS, HERO_API_URL, LANE_ORDER, TYPE_ORDER, WINLIST_API_URL
+
+# Nested blocks that describe *other* heroes (counters, synergies...) and must
+# not be mistaken for the hero's own fields.
+_SKIP_KEYS = ("relation",)
+
+
+def _collect(obj, key: str) -> list:
+    """Recursively collect every value stored under `key` (skipping _SKIP_KEYS)."""
+    found = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in _SKIP_KEYS:
+                continue
+            if k == key:
+                found.append(v)
+            else:
+                found.extend(_collect(v, key))
+    elif isinstance(obj, list):
+        for item in obj:
+            found.extend(_collect(item, key))
+    return found
+
+
+def _tidy(text: str, canonical) -> str:
+    """Fix capitalization: known names map to their canonical form
+    ("fighter" -> "Fighter", "exp lane" -> "EXP Lane"); otherwise each word
+    gets an uppercase first letter and the rest is left alone."""
+    key = text.casefold()
+    for name in canonical:
+        if name.casefold() == key:
+            return name
+    return " ".join(w[:1].upper() + w[1:] for w in text.split())
+
+
+def _strings(values, canonical=()) -> List[str]:
+    """Unique, non-empty, stripped (and capitalization-fixed) strings in original order."""
+    out: List[str] = []
+    for v in values:
+        if isinstance(v, str):
+            v = _tidy(v.strip(), canonical)
+            if v and v not in out:
+                out.append(v)
+    return out
+
+
+def _fix_url(url: str) -> str:
+    return "https:" + url if url.startswith("//") else url
 
 
 def fetch_all_heroes() -> Dict[int, dict]:
-    """Return {hero_id: {"name": str, "head_big": str}} for every hero."""
+    """
+    Return {hero_id: {"name", "head_big", "smallmap", "types", "lanes"}}.
+
+    types = every `sort_title`  (e.g. Assassin, Marksman)
+    lanes = every `road_sort_title` (e.g. Roam, Gold Lane)
+    """
     payload = {
         "pageSize": 200,
         "pageIndex": 1,
@@ -27,9 +79,23 @@ def fetch_all_heroes() -> Dict[int, dict]:
         try:
             d = record["data"]
             hid = int(d["hero_id"])
-            name = d["hero"]["data"]["name"]
+            hero_data = (d.get("hero") or {}).get("data") or {}
+            name = hero_data["name"]
+
             head_big = d.get("head_big") or d.get("head") or ""
-            result[hid] = {"name": name, "head_big": head_big}
+            smallmap = (
+                hero_data.get("smallmap")
+                or d.get("smallmap")
+                or next(iter(_strings(_collect(d, "smallmap"))), "")
+            )
+
+            result[hid] = {
+                "name": name,
+                "head_big": _fix_url(head_big),
+                "smallmap": _fix_url(smallmap),
+                "types": _strings(_collect(d, "sort_title"), TYPE_ORDER),
+                "lanes": _strings(_collect(d, "road_sort_title"), LANE_ORDER),
+            }
         except (KeyError, TypeError, ValueError):
             continue
     return result

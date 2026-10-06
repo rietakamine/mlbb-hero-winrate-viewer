@@ -5,19 +5,18 @@ import tkinter as tk
 from stats import calc_wr
 from ui.theme import (
     ACCENT, ACCENT_HOV, BG, BORDER, CYAN, ORANGE, PANEL, PANEL2,
-    PURPLE, TEXT, TEXT_BRIGHT,
+    PURPLE, TEXT, TEXT_BRIGHT, TEXT_DIM,
 )
 
 
 class StatsPopup(tk.Toplevel):
-    def __init__(self, parent, name, photo, classic, rank):
+    def __init__(self, parent, name, photo, classic, rank, subtitle=""):
         super().__init__(parent)
         self.title(name)
         self.configure(bg=BG)
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
-        self.geometry(f"+{parent.winfo_rootx() + 60}+{parent.winfo_rooty() + 60}")
 
         outer = tk.Frame(self, bg=BORDER, padx=1, pady=1)
         outer.pack()
@@ -32,7 +31,13 @@ class StatsPopup(tk.Toplevel):
         tk.Label(
             frame, text=name, font=("Segoe UI", 15, "bold"),
             fg=TEXT_BRIGHT, bg=PANEL
-        ).pack(pady=(0, 14))
+        ).pack(pady=(0, 2 if subtitle else 14))
+
+        if subtitle:
+            tk.Label(
+                frame, text=subtitle, font=("Segoe UI", 9),
+                fg=TEXT_DIM, bg=PANEL
+            ).pack(pady=(0, 14))
 
         c_tot, c_win = classic
         r_tot, r_win = rank
@@ -65,3 +70,12 @@ class StatsPopup(tk.Toplevel):
             command=self.destroy
         )
         btn.pack(pady=(14, 0))
+
+        # The portrait image makes this window tall: keep it fully on screen.
+        self.update_idletasks()
+        w, h = self.winfo_reqwidth(), self.winfo_reqheight()
+        x = parent.winfo_rootx() + 60
+        y = parent.winfo_rooty() + 60
+        x = max(0, min(x, self.winfo_screenwidth() - w - 20))
+        y = max(0, min(y, self.winfo_screenheight() - h - 60))
+        self.geometry(f"+{x}+{y}")
